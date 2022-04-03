@@ -3,6 +3,7 @@
 # also inspired by functions from https://github.com/torps/torps for path selection
 
 import sys
+import urllib
 import consensus
 import tor_path
 import dynamic_tor_path
@@ -14,73 +15,101 @@ def main():
 	num_tor_paths = 20
 	num_dynamic_paths = 20
 	use_guard_node = 1
-	adv_guards = 200
-	adv_guard_bw = 10000
-	adv_exits = 200
-	adv_exit_bw = 15000
-	hop_build_time = None
-	output_mode = "DISPLAY"
+	adv_guards_start = 200
+	adv_guards_end = 200
+	adv_guard_bw_start = 10000
+	adv_guard_bw_end = 10000
+	adv_exits_start = 200
+	adv_exits_end = 200
+	adv_exit_bw_start = 15000
+	adv_exit_bw_end = 15000
+	output_mode = None
+	output_file = "output_file.csv"
 
 	# parse options
 	for option in sys.argv:
 		tokens = option.split('=')
 		if tokens[0].startswith("--num_tor_paths"):
-			use_guard_node = int(tokens[1])
+			num_tor_paths = int(tokens[1])
 		if tokens[0].startswith("--num_dynamic_paths"):
-			use_guard_node = int(tokens[1])
+			num_dynamic_paths = int(tokens[1])
 		if tokens[0].startswith("--use_guard_node"):
 			use_guard_node = int(tokens[1])
-		if tokens[0].startswith("--adv_guards"):
-			adv_guards = int(tokens[1])
-		if tokens[0].startswith("--adv_guard_bw"):
-			adv_guard_bw = int(tokens[1])
-		if tokens[0].startswith("--adv_exits"):
-			adv_exits = int(tokens[1])
-		if tokens[0].startswith("--adv_exit_bw"):
-			adv_exit_bw = int(tokens[1])
-		if tokens[0].startswith("--hop_build_time"):
-			timings = tokens[1].split(',')
-			hop_build_time = [int(timings[0]), int(timings[1]), int(timings[2])]
+		if tokens[0].startswith("--adv_guards_start"):
+			adv_guards_start = int(tokens[1])
+		if tokens[0].startswith("--adv_guards_end"):
+			adv_guards_end = int(tokens[1])
+		if tokens[0].startswith("--adv_guard_bw_start"):
+			adv_guard_bw_start = int(tokens[1])
+		if tokens[0].startswith("--adv_guard_bw_end"):
+			adv_guard_bw_end = int(tokens[1])
+		if tokens[0].startswith("--adv_exits_start"):
+			adv_exits_start = int(tokens[1])
+		if tokens[0].startswith("--adv_exits_end"):
+			adv_exits_end = int(tokens[1])
+		if tokens[0].startswith("--adv_exit_bw_start"):
+			adv_exit_bw_start = int(tokens[1])
+		if tokens[0].startswith("--adv_exit_bw_end"):
+			adv_exit_bw_end = int(tokens[1])
 		if tokens[0].startswith("--output_mode"):
 			output_mode = tokens[1]
-		
-	# create and parse the consensus file
-	cons = consensus.consensus(consensus_file)
-	cons.parse_consensus()
+		if tokens[0].startswith("--output_file"):
+			output_file = tokens[1]
 
-	# create adversary guard nodes
-	for i in range(adv_guards):
-		name = "adv_guard_{}".format(i)
-		flags = ['Guard', 'Valid', 'Fast', 'Running', 'Stable', 'Adv']
-		bandwidth = 9000
-		cons.add_node(name, name, flags, bandwidth)
+	# Do num guard and exit increasing
+	for num_guards in range(adv_guards_start, adv_guards_end):
+		# create and parse the consensus file
+		cons = consensus.consensus(consensus_file)
+		cons.parse_consensus()
 
-	# create adversary exit nodes
-	for i in range(adv_exits):
-		name = "adv_exit_{}".format(i)
-		flags = ['Exit', 'Valid', 'Fast', 'Running', 'Stable', 'Adv']
-		bandwidth = 9000
-		cons.add_node(name, name, flags, bandwidth)
+		# add guard nodes
+		for j in range(adv_guards_start):
+			name = "adv_guard_{}".format(j)
+			cons.add_node(name, name, ['Guard', 'Valid', 'Fast', 'Running', 'Stable', 'Adv'], adv_guard_bw_start)
 
-	paths = tor_path.tor_path(cons).generate_paths(num_tor_paths, use_guard_node)
-	if output_mode == "DEBUG":
-		print("Tor paths:")
-		for path in paths:
-			print("guard: {}, middle: {}, exit: {}".format(path[0].name, path[1].name, path[2].name))
+		# add exit nodes
+		j = 0
+		for j in range(adv_exits_start):
+			name = "adv_exit_{}".format(j)
+			cons.add_node(name, name, ['Exit', 'Valid', 'Fast', 'Running', 'Stable', 'Adv'], adv_exit_bw_start)
 
-	trees = dynamic_tor_path.dynamic_tor_path(cons).generate_trees(num_dynamic_paths, use_guard_node)
-	if output_mode == "DEBUG":
-		print("Tor dynamic trees:")
-		for tree in trees:
-			print("guard: {}".format(tree[0].name))
-			for i in range(1, 3):
-				print("middle: {}".format(tree[i].name))
-			for i in range(3, 7):
-				print("exit: {}".format(tree[i].name))
-			print()
+		j += 1
+		for num_exits in range(adv_exits_start,adv_exits_end):
+			# add another exit node
+			name = "adv_exit_{}".format(j)
+			j += 1
+			cons.add_node(name, name, ['Exit', 'Valid', 'Fast', 'Running', 'Stable', 'Adv'], adv_exit_bw_start)
 
-	stats = statistics.statistics(cons, paths, trees, adv_guards, adv_guard_bw, adv_exits, adv_exit_bw, hop_build_time)
-	stats.output()
+			paths = tor_path.tor_path(cons).generate_paths(num_tor_paths, use_guard_node)
+			if output_mode == "DEBUG":
+				print("Tor paths:")
+				for path in paths:
+					print("guard: {}, middle: {}, exit: {}".format(path[0].name, path[1].name, path[2].name))
+
+			trees = dynamic_tor_path.dynamic_tor_path(cons).generate_trees(num_dynamic_paths, use_guard_node)
+			if output_mode == "DEBUG":
+				print("Tor dynamic trees:")
+				for tree in trees:
+					print("guard: {}".format(tree[0].name))
+					for k in range(1, 3):
+						print("middle: {}".format(tree[k].name))
+					for k in range(3, 7):
+						print("exit: {}".format(tree[k].name))
+					print()
+				
+			stats = statistics.statistics(cons, paths, trees, num_guards, adv_guard_bw_start, num_exits, adv_exit_bw_start)
+			results_header = stats.calculate()
+
+			if output_mode == "DEBUG":
+				stats.output(results=results);
+
+			# output results to file
+			with open(output_file, 'a') as f:
+				f.write("{},{},{},{},".format(num_guards, adv_guard_bw_start, num_exits, adv_exit_bw_start))
+				for result in results_header[0]:
+					f.write(str(result))
+					f.write(",")
+				f.write("\n")
 
 if __name__ == "__main__":
 	main()
