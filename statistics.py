@@ -44,7 +44,7 @@ class statistics:
 		headers.append("% of paths with an adversary exit node")
 		headers.append("% of paths with an adversary entry node")
 		headers.append("% of paths with both aversary exit and entry node")
-		headers.append("% of paths with both aversary exit midle, and entry node")
+		headers.append("% of paths with both aversary exit midle and entry node")
 
 		total_exits_adv = 0
 		total_entries_adv = 0
@@ -67,7 +67,7 @@ class statistics:
 		headers.append("% of trees with an adversary exit node")
 		headers.append("% of trees with an adversary entry node")
 		headers.append("% of trees with an adversary entry and exit node")
-		headers.append("% of trees with an adversary entry, middle and exit node")
+		headers.append("% of trees with an adversary entry middle and exit node")
 		headers.append("average number of adversary middle nodes")
 		headers.append("average number of adversary exit nodes")
 

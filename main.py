@@ -3,11 +3,12 @@
 # also inspired by functions from https://github.com/torps/torps for path selection
 
 import sys
-import urllib
+import copy
 import consensus
 import tor_path
 import dynamic_tor_path
 import statistics
+
 
 def main():
 	consensus_file = sys.argv[1]
@@ -56,29 +57,37 @@ def main():
 		if tokens[0].startswith("--output_file"):
 			output_file = tokens[1]
 
-	# Do num guard and exit increasing
+	wrote_header = False
+
+	# create and parse the consensus file
+	original_consensus = consensus.consensus(consensus_file)
+	original_consensus.parse_consensus()
+	num_guards = 0
+	num_exits = 0
+
+	# add starting number of guard nodes
+	for num_guards in range(adv_guards_start):
+		name = "adv_guard_{}".format(num_guards)
+		original_consensus.add_node(name, name, ['Guard', 'Valid', 'Fast', 'Running', 'Stable', 'Adv'], adv_guard_bw_start)
+	
+	# add starting number of exit nodes
+	for num_exits in range(adv_exits_start):
+		name = "adv_exit_{}".format(num_exits)
+		original_consensus.add_node(name, name, ['Exit', 'Valid', 'Fast', 'Running', 'Stable', 'Adv'], adv_exit_bw_start)
+
 	for num_guards in range(adv_guards_start, adv_guards_end):
-		# create and parse the consensus file
-		cons = consensus.consensus(consensus_file)
-		cons.parse_consensus()
+		# add another guard node
+		name = "adv_guard_{}".format(num_guards)
+		original_consensus.add_node(name, name, ['Guard', 'Valid', 'Fast', 'Running', 'Stable', 'Adv'], adv_guard_bw_start)
 
-		# add guard nodes
-		for j in range(adv_guards_start):
-			name = "adv_guard_{}".format(j)
-			cons.add_node(name, name, ['Guard', 'Valid', 'Fast', 'Running', 'Stable', 'Adv'], adv_guard_bw_start)
+		cons = copy.deepcopy(original_consensus)
 
-		# add exit nodes
-		j = 0
-		for j in range(adv_exits_start):
-			name = "adv_exit_{}".format(j)
-			cons.add_node(name, name, ['Exit', 'Valid', 'Fast', 'Running', 'Stable', 'Adv'], adv_exit_bw_start)
-
-		j += 1
-		for num_exits in range(adv_exits_start,adv_exits_end):
+		for num_exits in range(adv_exits_start, adv_exits_end):
 			# add another exit node
-			name = "adv_exit_{}".format(j)
-			j += 1
+			name = "adv_exit_{}".format(num_exits)
 			cons.add_node(name, name, ['Exit', 'Valid', 'Fast', 'Running', 'Stable', 'Adv'], adv_exit_bw_start)
+
+			cons.compute_scale_weight_nodes()
 
 			paths = tor_path.tor_path(cons).generate_paths(num_tor_paths, use_guard_node)
 			if output_mode == "DEBUG":
@@ -98,17 +107,22 @@ def main():
 					print()
 				
 			stats = statistics.statistics(cons, paths, trees, num_guards, adv_guard_bw_start, num_exits, adv_exit_bw_start)
-			results_header = stats.calculate()
+			results, headers = stats.calculate()
 
 			if output_mode == "DEBUG":
 				stats.output(results=results);
 
 			# output results to file
 			with open(output_file, 'a') as f:
+				if not wrote_header:
+					f.write("# of adv guards,adv guard bw,# of adv exits,adv exit bw,")
+					for header in headers:
+						f.write(header+",")
+					f.write("\n")
+					wrote_header = True
 				f.write("{},{},{},{},".format(num_guards, adv_guard_bw_start, num_exits, adv_exit_bw_start))
-				for result in results_header[0]:
-					f.write(str(result))
-					f.write(",")
+				for result in results:
+					f.write(str(result)+",")
 				f.write("\n")
 
 if __name__ == "__main__":

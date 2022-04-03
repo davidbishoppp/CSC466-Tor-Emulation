@@ -25,19 +25,25 @@ class node:
 	def is_fast(self):
 		return "Fast" in self.flags
 
+	def is_adv(self):
+		return "Adv" in self.flags
+
 	def contains_flags(self, contains):
 		for flag in contains:
 			if flag not in self.flags:
 				return False
 		return True
 
-	def is_adv(self):
-		return "Adv" in self.flags
-
 class consensus:
 	def __init__(self, consensus_file):
 		self.consensus_file = consensus_file
 		self.nodes = []
+		self.exit_nodes = []
+		self.weighted_exit_nodes = []
+		self.middle_nodes = []
+		self.weighted_middle_nodes = []
+		self.guard_nodes = []
+		self.weighted_guard_nodes = []
 		self.weights = {}
 		self.bwweight_scale = 10000 # default value if not provided by consensus file
 
@@ -94,59 +100,22 @@ class consensus:
 			self.weights[weight] = value
 
 	def add_node(self, name, identifier, flags, bandwidth):
-		self.nodes.append(node(name, identifier, flags, bandwidth))
+		new_node = node(name, identifier, flags, bandwidth)
+		self.nodes.append(new_node)
+		if new_node.contains_flags(['Valid', 'Running', 'Fast']):
+			self.middle_nodes.append(new_node)
+		if new_node.contains_flags(['Valid', 'Running', 'Fast', 'Guard']):
+			self.guard_nodes.append(new_node)
+		if new_node.contains_flags(['Valid', 'Running', 'Fast', 'Exit']):
+			self.exit_nodes.append(new_node)
 
-	# get an exit node for the path
-	def get_exit_node(self):
-		exits = self.get_exit_nodes_for_path()
-		return self.select_random_node(exits)
-
-	# get a guard node for the path
-	def get_guard_node(self):
-		guards = self.get_guard_nodes_for_path()
-		return self.select_random_node(guards)
-
-	# get a middle node for the path
-	def get_middle_node(self):
-		middles = self.get_middle_nodes_for_path()
-		return self.select_random_node(middles)
-
-	# selects a random node based on the weights of the nodes
-	# inspired by https://github.com/torps/torps/blob/9dce9adae4b0dbc9db4c75b2c350ac740f17ecd1/pathsim.py#L231
-	def select_random_node(self, weighted_nodes):
-		r = random.random()
-		begin = 0
-		end = len(weighted_nodes)-1
-		mid = int((end+begin)/2)
-		while True:
-			if begin == mid or mid == end:
-				return weighted_nodes[mid][0]
-			if r <= weighted_nodes[mid][1]:
-				end = mid
-				mid = int((end+begin)/2)
-			elif r > weighted_nodes[mid][1]:
-				begin = mid
-				mid = int((end+begin)/2)
-
-		return weighted_nodes[0][0] # shouldnt reach this...
-
-	# gets a list of exit (node, weight) pairs for path selection
-	def get_exit_nodes_for_path(self):
-		exits = self.get_exit_nodes()
-		weighted_exits = self.weight_nodes(exits, 'e')
-		return self.scale_weight_nodes(exits, weighted_exits, self.bwweight_scale)
-		
-	# gets a list of guard (node, weight) pairs for path selection
-	def get_guard_nodes_for_path(self):
-		guards = self.get_guard_nodes()
-		weighted_guards = self.weight_nodes(guards, 'g')
-		return self.scale_weight_nodes(guards, weighted_guards, self.bwweight_scale)
-
-	# gets a list of middle (node, weight) pairs for path selection
-	def get_middle_nodes_for_path(self):
-		middles = self.get_middle_nodes()
-		weighted_middles = self.weight_nodes(middles, 'm')
-		return self.scale_weight_nodes(middles, weighted_middles, self.bwweight_scale)
+	def compute_scale_weight_nodes(self):
+		random.shuffle(self.guard_nodes) # random order of nodes so nodes added after consensus wont be bunched at the end
+		random.shuffle(self.exit_nodes)
+		random.shuffle(self.middle_nodes)
+		self.weighted_guard_nodes = self.scale_weight_nodes(self.guard_nodes, self.weight_nodes(self.guard_nodes, 'g'), self.bwweight_scale)
+		self.weighted_middle_nodes = self.scale_weight_nodes(self.middle_nodes, self.weight_nodes(self.middle_nodes, 'm'), self.bwweight_scale)
+		self.weighted_exit_nodes = self.scale_weight_nodes(self.exit_nodes, self.weight_nodes(self.exit_nodes, 'e'), self.bwweight_scale)
 
 	# weight each node provided s.t. its weight is the cumulative weight 
 	# of previous nodes + node bandwidth * (bw weight / bwweight_scale) / total_bw
@@ -204,32 +173,42 @@ class consensus:
 		else:
 			return 10000
 
-	# get all exit nodes from nodes list.
-	# exit nodes must contain the Valid, Running, Fast, and Exit flags
-	def get_exit_nodes(self):
-		exits = []
-		for node in self.nodes:
-			if node.contains_flags(['Valid', 'Running', 'Fast', 'Exit']):
-				exits.append(node)
-		random.shuffle(exits)
-		return exits
+	# get an exit node for the path
+	def get_exit_node(self):
+		return self.select_random_node(self.weighted_exit_nodes)
 
-	# get all middle nodes from nodes list.
-	# middle nodes must contain the Valid, Running, Fast flags
+	# get a guard node for the path
+	def get_guard_node(self):
+		return self.select_random_node(self.weighted_guard_nodes)
+
+	# get a middle node for the path
+	def get_middle_node(self):
+		return self.select_random_node(self.weighted_middle_nodes)
+
+	# selects a random node based on the weights of the nodes
+	# inspired by https://github.com/torps/torps/blob/9dce9adae4b0dbc9db4c75b2c350ac740f17ecd1/pathsim.py#L231
+	def select_random_node(self, weighted_nodes):
+		r = random.random()
+		begin = 0
+		end = len(weighted_nodes)-1
+		mid = int((end+begin)/2)
+		while True:
+			if begin == mid or mid == end:
+				return weighted_nodes[mid][0]
+			if r <= weighted_nodes[mid][1]:
+				end = mid
+				mid = int((end+begin)/2)
+			elif r > weighted_nodes[mid][1]:
+				begin = mid
+				mid = int((end+begin)/2)
+
+		return weighted_nodes[0][0] # shouldnt reach this...
+
 	def get_middle_nodes(self):
-		middles = []
-		for node in self.nodes:
-			if node.contains_flags(['Valid', 'Running', 'Fast']):
-				middles.append(node)
-		random.shuffle(middles)
-		return middles
+		return self.middle_nodes
 
-	# get all guards nodes from nodes list.
-	# guards nodes must contain the Valid, Running, Fast, and Guard flags
 	def get_guard_nodes(self):
-		guards = []
-		for node in self.nodes:
-			if node.contains_flags(['Valid', 'Running', 'Fast', 'Guard']):
-				guards.append(node)
-		random.shuffle(guards)
-		return guards
+		return self.guard_nodes
+
+	def get_exit_nodes(self):
+		return self.exit_nodes
