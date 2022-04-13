@@ -5,17 +5,16 @@ An emulation and statistical analysis of the default Tor path selection and dyna
 `python3 main.py <consensus file> [options]`
 
 ### Options
-| **Option** | **Type** | **Default** | **Description** |
-| ---------- | -------- | ----------- | --------------- |
-| --num_tor_paths | number | 20 | The number of regular Tor paths to create. |
-| --num_dynamic_paths | numer | 20 | The number of dynamic Tor paths to create. |
-| --use_guard_node | number | 1 | Requires path generation to use a trusted guard node for all paths. |
-| --adv_guards | number | 200 | The number of aversary guard nodes to include in the directory. |
-| --adv_guard_bw | number | 10000 | The advertised bandwidth from adversary guard nodes. |
-| --adv_exits | number | 200 | The number of aversary exit nodes to include in the directory. |
-| --adv_exit_bw | number | 15000 | The advertised bandwidth from adversary exit nodes. |
-| --hop_build_time | number,number,number | Will use current Tor metrics | The build time for the first, scond and thrid hop in the circuit in ms. |
-| --output_mode | str | DISPLAY | Able to use DISPLAY and DEBUG output modes. |
-
-## Example
-`python3 main.py --use_guard_node=0 --adv_guards=200 --adv_guard_bw=15000 --adv_exits=200 --adv_exit_bw=10000`
+| **Option** | **Default** | **Description** |
+| ---------- | ----------- | --------------- |
+| --num_tor_paths | 20 | The number of regular Tor paths to create. |
+| --num_dynamic_paths | 20 | The number of dynamic Tor paths to create. |
+| --use_guard_node | 1 | Requires path generation to use a trusted guard node for all paths. |
+| --adv_guards_start | 199 | The number of aversary guard nodes to start in the directory. |
+| --adv_guards_end | 200 | The number of aversary guard nodes to end in the directory. |
+| --adv_guard_bw_start | 10000 | The advertised bandwidth for adversary guard nodes. |
+| --adv_exits_start | 199 | The number of aversary exit nodes to start in the directory. |
+| --adv_exits_end | 200 | The number of aversary exit nodes to end in the directory. |
+| --adv_exit_bw_start | 15000 | The advertised bandwidth for adversary exit nodes. |
+| --output_mode | None | Use DEBUG output mode to print Tor paths, circuit trees and stats. |
+| --output_file | output_file.csv | Specify the output file for stats. |
