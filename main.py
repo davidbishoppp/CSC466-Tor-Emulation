@@ -16,14 +16,12 @@ def main():
 	num_tor_paths = 20
 	num_dynamic_paths = 20
 	use_guard_node = 1
-	adv_guards_start = 200
+	adv_guards_start = 199
 	adv_guards_end = 200
 	adv_guard_bw_start = 10000
-	adv_guard_bw_end = 10000
-	adv_exits_start = 200
+	adv_exits_start = 199
 	adv_exits_end = 200
 	adv_exit_bw_start = 15000
-	adv_exit_bw_end = 15000
 	output_mode = None
 	output_file = "output_file.csv"
 
@@ -42,16 +40,12 @@ def main():
 			adv_guards_end = int(tokens[1])
 		if tokens[0].startswith("--adv_guard_bw_start"):
 			adv_guard_bw_start = int(tokens[1])
-		if tokens[0].startswith("--adv_guard_bw_end"):
-			adv_guard_bw_end = int(tokens[1])
 		if tokens[0].startswith("--adv_exits_start"):
 			adv_exits_start = int(tokens[1])
 		if tokens[0].startswith("--adv_exits_end"):
 			adv_exits_end = int(tokens[1])
 		if tokens[0].startswith("--adv_exit_bw_start"):
 			adv_exit_bw_start = int(tokens[1])
-		if tokens[0].startswith("--adv_exit_bw_end"):
-			adv_exit_bw_end = int(tokens[1])
 		if tokens[0].startswith("--output_mode"):
 			output_mode = tokens[1]
 		if tokens[0].startswith("--output_file"):
