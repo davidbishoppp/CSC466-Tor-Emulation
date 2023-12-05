@@ -1,4 +1,4 @@
-# tor-stats-simulation
+# CSC466-Tor-Emulation
 An emulation and statistical analysis of the default Tor path selection and dynamic paths. Created for CSC466: Overlay and Peer-to-Peer Networking final project.
 
 ## Running
